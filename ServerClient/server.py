@@ -1,63 +1,46 @@
-# Python program to implement server side of chat room.
 import socket
-import select
-import sys
+import threading
 
-from _thread import *
+HDR = 64
+port = 8989
+SERVER = socket.gethostbyname(socket.gethostname())
+addr = (SERVER, port)
+
+fmt = 'utf-8'
+dcMsg = "!DISCONNECT"
+welcomeMsg = "Welcome to the server"
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-IP_address = "101.179.18.253"
-Port = 8989
-server.bind((IP_address, Port))
-server.listen(100)
-list_of_clients = []
+server.bind(addr)
 
 
-def clientthread(conn, addr):
-    conn.send("Welcome to this chatroom!")
+def handleClient(conn, addr):
+    print(f"<New connection> {addr} connected.")
+
+    connected = True
+    while connected:
+        msgLen = conn.recv(HDR).decode(fmt)
+        if msgLen:
+            msgLen = int(msgLen)
+            msg = conn.recv(msgLen).decode(fmt)
+            if msg == dcMsg:
+                connected == False
+
+            print(f"[{addr}] {msg}")
+            conn.send("Msg received".encode(fmt))
+
+    conn.close()
+
+
+def start():
+    server.listen()
+    print(f"[LISTENING] server is listening on {SERVER}")
     while True:
-        try:
-            message = conn.recv(2048)
-            if message:
-                print("<" + addr[0] + "> " + message)
-
-                # Calls broadcast function to send message to all
-                message_to_send = "<" + addr[0] + "> " + message
-                broadcast(message_to_send, conn)
-            else:
-                remove(conn)
-        except:
-            continue
+        conn, addr = server.accept()
+        thread = threading.Thread(target=handleClient, args=(conn,addr))
+        thread.start()
+        print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
 
 
-def broadcast(message, connection):
-    for clients in list_of_clients:
-        if clients != connection:
-            try:
-                clients.send(message)
-            except:
-                clients.close()
-                # if the link is broken, we remove the client
-                remove(clients)
-
-
-def remove(connection):
-    if connection in list_of_clients:
-        list_of_clients.remove(connection)
-
-
-while True:
-    conn, addr = server.accept()
-    list_of_clients.append(conn)
-
-    # prints the address of the user that just connected
-    print(addr[0] + " connected")
-
-    # creates and individual thread for every user
-    # that connects
-    start_new_thread(clientthread, (conn, addr))
-
-conn.close()
-server.close()
+print("[STARTING] Server is starting...")
+start()

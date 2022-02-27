@@ -1,27 +1,26 @@
-# Python program to implement client side of chat room.
 import socket
-import select
-import sys
 
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-IP_address = "101.179.18.253"
-Port = 8989
-server.connect((IP_address, Port))
+HEADER = 64
+PORT = 8989
+FORMAT = 'utf-8'
+DISCONNECT_MESSAGE = "!DISCONNECT"
+SERVER = socket.gethostbyname(socket.gethostname())
+ADDR = (SERVER, PORT)
 
-while True:
+client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client.connect(ADDR)
 
-    # maintains a list of possible input streams
-    sockets_list = [sys.stdin, server]
-    read_sockets, write_socket, error_socket = select.select(sockets_list, [], [])
+def send(msg):
+    message = msg.encode(FORMAT)
+    msg_length = len(message)
+    send_length = str(msg_length).encode(FORMAT)
+    send_length += b' ' * (HEADER - len(send_length))
+    client.send(send_length)
+    client.send(message)
+    print(client.recv(2048).decode(FORMAT))
 
-    for socks in read_sockets:
-        if socks == server:
-            message = socks.recv(2048)
-            print(message)
-        else:
-            message = sys.stdin.readline()
-            server.send(message)
-            sys.stdout.write("<You>")
-            sys.stdout.write(message)
-            sys.stdout.flush()
-server.close()
+send("Hello World!")
+input()
+send("Hello Everyone!")
+
+send(DISCONNECT_MESSAGE)
